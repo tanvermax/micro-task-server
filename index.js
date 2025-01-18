@@ -1,7 +1,7 @@
 const express = require('express');
 
 const app = express();
-const cors= require('cors');
+const cors = require('cors');
 require('dotenv').config();
 
 const port = process.env.PORT || 5000;
@@ -19,7 +19,7 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   }
-}); 
+});
 
 async function run() {
   try {
@@ -29,13 +29,27 @@ async function run() {
     // await client.db("admin").command({ ping: 1 });
 
     const userCollection = client.db('earnly').collection("users");
-// get user api
+    // get user api
 
-app.get('/users', async (req,res)=>{
-  const cursor = userCollection.find()
-  const result = await cursor.toArray();
-  res.send(result);
-})
+    app.get('/users', async (req, res) => {
+      const email = req.query.email;
+    
+      // If email is provided, find the specific user by email
+      if (email) {
+        const user = await userCollection.findOne({ email: email });
+        
+        if (user) {
+          res.send(user); // Send back the user data
+        } else {
+          res.status(404).send({ message: 'User not found' }); // Handle case where user is not found
+        }
+      } else {
+        // If no email is provided, return all users
+        const cursor = userCollection.find();
+        const result = await cursor.toArray();
+        res.send(result);
+      }
+    });
     // new useer
     app.post("/users", async (req, res) => {
       try {
