@@ -42,6 +42,23 @@ async function run() {
       res.send(result);
 
     })
+    // middlewere
+    const verifytoken = (req,res,next)=>{
+      console.log("inside verytoken", req.headers.authorization);
+      if (!req.headers.authorization) {
+        return res.status(401).send({message :'forbidden access'})
+      }
+      const token = req.headers.authorization.split(' ')[1];
+      jwt.verify(token , process.env.JWT_SECRET,(error,decodeed)=>{
+        if (error) {
+          return res.status(401).send({message: 'forbidden access'})
+        }
+        req.decodeed= decodeed;
+        next();
+      })
+      
+      
+    }
   //   app.patch('/users/admin/:id', async (req, res) => {
   //     const id = req.params.id;
   //     const filter = { _id: new ObjectId(id) };
@@ -51,7 +68,7 @@ async function run() {
   // });
   
     // jwt token
-    app.post('/', (req, res) => {
+    app.post('/jwt', (req, res) => {
       try {
         const user = req.body;
         const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '5h' })
@@ -67,7 +84,9 @@ async function run() {
 
     // get user api
 
-    app.get('/users', async (req, res) => {
+    app.get('/users',verifytoken, async (req, res) => {
+      console.log(req.headers);
+      
       const email = req.query.email;
 
       // If email is provided, find the specific user by email
@@ -86,12 +105,22 @@ async function run() {
         res.send(result);
       }
     });
+
+
+    // app.post('/users',async(req,res)=>{
+    //   const newuser = req.body;
+    //   const result = await userCollection.insertOne(newuser); 
+    //   res.send(result);
+    // })
+
     // new useer
+
+
     app.post("/users", async (req, res) => {
 
       try {
         const newuser = req.body;
-        const query = { email: user.email }
+        const query = { email: newuser.email }
         const existinguser = await userCollection.findOne(query)
         if (existinguser) {
           return res.send({ message: 'user already axists', insertedId: null })
