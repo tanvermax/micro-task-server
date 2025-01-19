@@ -1,14 +1,14 @@
 const express = require('express');
-
+const jwt = require('jsonwebtoken');
 const app = express();
 const cors = require('cors');
 require('dotenv').config();
-
+const cookieParser= require('cookie-parser');
 const port = process.env.PORT || 5000;
 
 app.use(cors())
 app.use(express.json());
-
+app.use(cookieParser());
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.toqnk.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -29,6 +29,21 @@ async function run() {
     // await client.db("admin").command({ ping: 1 });
 
     const userCollection = client.db('earnly').collection("users");
+
+    // jwt token
+    app.post('/', (req, res)=>{
+      try{
+        const user = req.body;
+      const token = jwt.sign(user, process.env.JWT_SECRET,{expiresIn:'5h'})
+      res.cookie('access-token', token);
+      res.json({message :'token generated successfully', token})
+      }catch(error){
+        console.error('error genereted JWT:' ,error);
+        res.status(500).json({error :'INternal server Error'})
+        
+      }
+
+    })
     // get user api
 
     app.get('/users', async (req, res) => {
