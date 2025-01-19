@@ -28,8 +28,16 @@ async function run() {
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
 
+
     const userCollection = client.db('earnly').collection("users");
-    // admin api
+  
+    
+
+
+
+
+    //for making admin api
+
     app.patch('/users/admin/:id', async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -44,20 +52,37 @@ async function run() {
     })
     // middlewere
     const verifytoken = (req, res, next) => {
-      console.log("inside verytoken", req.headers.authorization);
+      // console.log("inside verytoken", req.headers.authorization);
       if (!req.headers.authorization) {
         return res.status(401).send({ message: 'forbidden access' })
       }
       const token = req.headers.authorization.split(' ')[1];
-      jwt.verify(token, process.env.JWT_SECRET, (error, decodeed) => {
+      jwt.verify(token, process.env.JWT_SECRET, (error, decoded) => {
         if (error) {
           return res.status(401).send({ message: 'forbidden access' })
         }
-        req.decodeed = decodeed;
+        req.decoded = decoded;
         next();
       })
 
 
+
+
+  // for admin
+      app.get('/users/admin/:email', verifytoken, async (req, res) => {
+        const email = req.params.email;
+        if (email !== req.decoded.email) {
+          return res.status(403).send({ message: 'unathorized access' })
+        }
+        const query = { email: email };
+        const user = await userCollection.findOne(query);
+        let admin = false;
+        if (user) {
+          admin = user?.role === 'admin'
+        }
+        res.send({ admin })
+      })
+  
     }
     //   app.patch('/users/admin/:id', async (req, res) => {
     //     const id = req.params.id;
