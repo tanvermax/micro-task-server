@@ -43,30 +43,30 @@ async function run() {
 
     })
     // middlewere
-    const verifytoken = (req,res,next)=>{
+    const verifytoken = (req, res, next) => {
       console.log("inside verytoken", req.headers.authorization);
       if (!req.headers.authorization) {
-        return res.status(401).send({message :'forbidden access'})
+        return res.status(401).send({ message: 'forbidden access' })
       }
       const token = req.headers.authorization.split(' ')[1];
-      jwt.verify(token , process.env.JWT_SECRET,(error,decodeed)=>{
+      jwt.verify(token, process.env.JWT_SECRET, (error, decodeed) => {
         if (error) {
-          return res.status(401).send({message: 'forbidden access'})
+          return res.status(401).send({ message: 'forbidden access' })
         }
-        req.decodeed= decodeed;
+        req.decodeed = decodeed;
         next();
       })
-      
-      
+
+
     }
-  //   app.patch('/users/admin/:id', async (req, res) => {
-  //     const id = req.params.id;
-  //     const filter = { _id: new ObjectId(id) };
-  //     const updatedData = { $set: { role: 'admin' } };
-  //     const result = await userCollection.updateOne(filter, updatedData);
-  //     res.send(result);
-  // });
-  
+    //   app.patch('/users/admin/:id', async (req, res) => {
+    //     const id = req.params.id;
+    //     const filter = { _id: new ObjectId(id) };
+    //     const updatedData = { $set: { role: 'admin' } };
+    //     const result = await userCollection.updateOne(filter, updatedData);
+    //     res.send(result);
+    // });
+
     // jwt token
     app.post('/jwt', (req, res) => {
       try {
@@ -84,9 +84,9 @@ async function run() {
 
     // get user api
 
-    app.get('/users',verifytoken, async (req, res) => {
+    app.get('/users', verifytoken, async (req, res) => {
       console.log(req.headers);
-      
+
       const email = req.query.email;
 
       // If email is provided, find the specific user by email
@@ -112,6 +112,13 @@ async function run() {
     //   const result = await userCollection.insertOne(newuser); 
     //   res.send(result);
     // })
+    // usedelet
+    app.delete('/users/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    })
 
     // new useer
 
