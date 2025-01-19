@@ -31,30 +31,21 @@ async function run() {
 
     const userCollection = client.db('earnly').collection("users");
   
-    
-
-
-
-
-    //for making admin api
-
-    app.patch('/users/admin/:id', async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedData = {
-        $set: {
-          role: "admin"
-        }
+    const verifyAdmin = async (req, res, next)=>{
+      const email = req.decoded.email;
+      const query = {email :email};
+      const user= await userCollection.findOne(query)
+      const isAdmin = user?.role ==='admin';
+      if (!isAdmin) {
+        return res.status(403).send({message : 'forbidden access'})
       }
-      const result = await userCollection.updateOne(filter, updatedData);
-      res.send(result);
+      next();
+    }
 
-    })
-    // middlewere
     const verifytoken = (req, res, next) => {
       // console.log("inside verytoken", req.headers.authorization);
       if (!req.headers.authorization) {
-        return res.status(401).send({ message: 'forbidden access' })
+        return res.status(401).send({ message: 'unathorized access' })
       }
       const token = req.headers.authorization.split(' ')[1];
       jwt.verify(token, process.env.JWT_SECRET, (error, decoded) => {
@@ -67,9 +58,27 @@ async function run() {
 
 
 
+    //for making admin api
+
+    app.patch('/users/admin/:id',verifytoken,verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedData = {
+        $set: {
+          role: "admin"
+        }
+      }
+      const result = await userCollection.updateOne(filter, updatedData);
+      res.send(result);
+
+    })
+    // middlewere
+    
+
+
 
   // for admin
-      app.get('/users/admin/:email', verifytoken, async (req, res) => {
+      app.get('/users/admin/:email', verifytoken,verifyAdmin, async (req, res) => {
         const email = req.params.email;
         if (email !== req.decoded.email) {
           return res.status(403).send({ message: 'unathorized access' })
@@ -138,7 +147,7 @@ async function run() {
     //   res.send(result);
     // })
     // usedelet
-    app.delete('/users/:id', async (req, res) => {
+    app.delete('/users/:id',verifytoken,verifyAdmin, async (req, res) => {
       const id = req.params.id
       const query = { _id: new ObjectId(id) }
       const result = await userCollection.deleteOne(query);
