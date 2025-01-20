@@ -66,7 +66,29 @@ async function run() {
       const result = await taskCollection.deleteOne(query);
       res.send(result);
     })
+    // create individual task cllect 
+    app.get('/task/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const task = await taskCollection.findOne(query);
+      res.send(task);
+    })
+    // update task field api
+    app.put("/task/:id", async (req, res) => {
+      const taskId = req.params.id;
+      const updatedData = req.body;
 
+      try {
+        const result = await taskCollection.updateOne(
+          { _id: new ObjectId(taskId) },
+          { $set: updatedData }
+        );
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating task:", error);
+        res.status(500).send({ error: "Failed to update task" });
+      }
+    });
 
     // all task api 
     app.get("/task", async (req, res) => {
