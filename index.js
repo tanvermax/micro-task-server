@@ -58,85 +58,93 @@ async function run() {
       })
     }
 
-      // payment api
+    // payment api
+    // delete task data
+    app.delete('/task/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const result = await taskCollection.deleteOne(query);
+      res.send(result);
+    })
+
 
     // all task api 
-    app.get("/task", async(req,res)=>{
+    app.get("/task", async (req, res) => {
       const result = await taskCollection.find().toArray();
       res.send(result);
     })
 
-      // task api 
-      app.post('/task', async (req, res) => {
-        const taskitem = req.body;
-        const result = await taskCollection.insertOne(taskitem);
-        res.send(result);
-      })
+    // task api 
+    app.post('/task', async (req, res) => {
+      const taskitem = req.body;
+      const result = await taskCollection.insertOne(taskitem);
+      res.send(result);
+    })
 
-      //for making admin api
+    //for making admin api
 
-      app.patch('/users/admin/:id', verifytoken, verifyAdmin, async (req, res) => {
-        const id = req.params.id;
-        const filter = { _id: new ObjectId(id) };
-        const updatedData = {
-          $set: {
-            role: "admin"
-          }
+    app.patch('/users/admin/:id', verifytoken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedData = {
+        $set: {
+          role: "admin"
         }
+      }
+      const result = await userCollection.updateOne(filter, updatedData);
+      res.send(result);
+
+    })
+
+    app.patch('/users/coins/:id', verifytoken, async (req, res) => {
+      const id = req.params.id;
+      const { coins } = req.body;
+
+      if (coins === undefined) {
+        return res.status(400).send({ success: false, message: "Coins value is required." });
+      }
+
+      const filter = { _id: new ObjectId(id) };
+      const updatedData = {
+        $set: { coins },
+      };
+
+      try {
         const result = await userCollection.updateOne(filter, updatedData);
-        res.send(result);
-
-      })
-
-      app.patch('/users/coins/:id', verifytoken, async (req, res) => {
-        const id = req.params.id;
-        const { coins } = req.body;
-      
-        if (coins === undefined) {
-          return res.status(400).send({ success: false, message: "Coins value is required." });
+        if (result.modifiedCount > 0) {
+          res.send({ success: true, message: "Coins updated successfully." });
+        } else {
+          res.send({ success: false, message: "No changes made or user not found." });
         }
-      
-        const filter = { _id: new ObjectId(id) };
-        const updatedData = {
-          $set: { coins },
-        };
-      
-        try {
-          const result = await userCollection.updateOne(filter, updatedData);
-          if (result.modifiedCount > 0) {
-            res.send({ success: true, message: "Coins updated successfully." });
-          } else {
-            res.send({ success: false, message: "No changes made or user not found." });
-          }
-        } catch (error) {
-          res.status(500).send({ success: false, message: "Error updating coins.", error });
-        }
-      });
-      
-      // middlewere
+      } catch (error) {
+        res.status(500).send({ success: false, message: "Error updating coins.", error });
+      }
+    });
+
+    // middlewere
 
 
 
 
-      // for admin
-      app.get('/users/admin/:email', verifytoken, verifyAdmin, async (req, res) => {
-        const email = req.params.email;
-        console.log("from line", req.decoded);
+    // for admin
+    app.get('/users/admin/:email', verifytoken, verifyAdmin, async (req, res) => {
+      const email = req.params.email;
+      console.log("from line", req.decoded);
 
-        // if (email !== req.decoded.email) {
+      // if (email !== req.decoded.email) {
 
-        //   return res.status(403).send({ message: 'unathorized access' })
-        // }
-        const query = { email: email };
-        const user = await userCollection.findOne(query);
-        let admin = false;
-        if (user) {
-          admin = user?.role === 'admin'
-        }
-        res.send({ admin })
-      })
+      //   return res.status(403).send({ message: 'unathorized access' })
+      // }
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === 'admin'
+      }
+      res.send({ admin })
+    })
 
-    
+
     //   app.patch('/users/admin/:id', async (req, res) => {
     //     const id = req.params.id;
     //     const filter = { _id: new ObjectId(id) };
