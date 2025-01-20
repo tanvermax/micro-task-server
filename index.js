@@ -5,6 +5,7 @@ const cors = require('cors');
 require('dotenv').config();
 const cookieParser = require('cookie-parser');
 const port = process.env.PORT || 5000;
+// const stripe = require('stripe')(process.env.STRIPE_TOKEN_SECREC)
 
 app.use(cors())
 app.use(express.json());
@@ -31,6 +32,7 @@ async function run() {
 
     const userCollection = client.db('earnly').collection("users");
     const taskCollection = client.db('earnly').collection("task");
+    const submitCollection = client.db('earnly').collection("submitted");
 
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
@@ -57,8 +59,64 @@ async function run() {
         next();
       })
     }
+    // all dubmitted api 
+    app.get("/submitted", async (req, res) => {
+      const result = await submitCollection.find().toArray();
+      res.send(result);
+    })
 
-    // payment api
+    // submitted from worker
+    app.post('/submitted', async (req, res) => {
+      const submititem = req.body;
+      const result = await submitCollection.insertOne(submititem);
+      res.send(result);
+    })
+
+    app.post("/create-payment-intent", async (req, res) => {
+      const { amount } = req.body;
+    
+      try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount, // In cents
+          currency: "usd",
+        });
+        res.json({ clientSecret: paymentIntent.client_secret });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+// Save Payment and Update Coins:
+    app.post("/payments", async (req, res) => {
+      const { paymentId, amount, userId, coinAmount } = req.body;
+    
+      try {
+        // Save payment to the database
+        await db.collection("payments").insertOne({
+          paymentId,
+          amount,
+          userId,
+          coinAmount,
+          date: new Date(),
+        });
+    
+        // Update user coins
+        await db.collection("users").updateOne(
+          { _id: userId },
+          { $inc: { coins: coinAmount } }
+        );
+    
+        res.status(200).json({ message: "Payment successful and coins updated." });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+    
+    
+
+
     // delete task data
     app.delete('/task/:id', async (req, res) => {
       const id = req.params.id
@@ -95,6 +153,7 @@ async function run() {
       const result = await taskCollection.find().toArray();
       res.send(result);
     })
+
 
     // task api 
     app.post('/task', async (req, res) => {
