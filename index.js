@@ -59,7 +59,23 @@ async function run() {
         next();
       })
     }
-    // all dubmitted api 
+
+
+    app.patch('/submitted/:id', async (req, res) => {
+      const id = req.params.id;
+      try {
+        const filter = { _id: new ObjectId(id) }; // Convert to ObjectId
+        const updatedData = {
+          $set: { status: "approve" },
+        };
+        const result = await submitCollection.updateOne(filter, updatedData);
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating submission:", error);
+        res.status(500).send({ error: "Failed to update submission" });
+      }
+    });
+    // all submitted api 
     app.get("/submitted", async (req, res) => {
       const result = await submitCollection.find().toArray();
       res.send(result);
