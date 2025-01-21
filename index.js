@@ -67,15 +67,80 @@ async function run() {
       res.send(result);
     })
 
+    // rejected
+
+    // try {
+    //   const result = await submitCollection.insertOne(submititem);
+    //   const taskUpdateresult = await taskCollection.updateOne(
+    //     { _id: new ObjectId(task_id) },
+    //     { $inc: { requiredWorkers: -1 } }
+
+    //   )
+    //   // console.log(taskUpdateresult);
 
 
+
+    //   res.send({
+    //     message: 'Submission created and task updated successfully',
+    //     submissionResult: result,
+    //     taskUpdateresult: taskUpdateresult,
+    //   });
+    // } catch (error) {
+    //   console.error('Error creating submission or updating task:', error);
+    //   res.status(500).send({ error: 'Failed to create submission or update task' });
+    // }
+
+    app.patch('/submitted/reject/:id', async (req, res) => {
+      const id = req.params.id;
+      try {
+        const submission = await submitCollection.findOne({ _id: new ObjectId(id) });
+        if (!submission) {
+          return res.status(404).send({ error: "Submission not found" });
+        }
+
+        const { task_id } = submission;
+
+        const filter = { _id: new ObjectId(id) };
+
+        // Convert to ObjectId
+        const updatedData = {
+          $set: { status: "reject" },
+        };
+
+
+        const result = await submitCollection.updateOne(filter, updatedData);
+
+        const taskUpdateresult = await taskCollection.updateOne(
+          { _id: new ObjectId(task_id) },
+          { $inc: { requiredWorkers: 1 } }
+
+        )
+        // console.log(taskUpdateresult);
+        res.send({
+          message: 'Submission created and task updated successfully',
+          submissionResult: result,
+          taskUpdateresult: taskUpdateresult,
+        });
+      } catch (error) {
+        console.error("Error updating submission:", error);
+        res.status(500).send({ error: "Failed to update submission" });
+      }
+    });
+
+
+    // approve
     app.patch('/submitted/:id', async (req, res) => {
       const id = req.params.id;
+      // console.log(id);
+
       try {
         const filter = { _id: new ObjectId(id) }; // Convert to ObjectId
         const updatedData = {
           $set: { status: "approve" },
         };
+        // console.log(filter);
+        // console.log(updatedData);
+
         const result = await submitCollection.updateOne(filter, updatedData);
         res.send(result);
       } catch (error) {
@@ -83,7 +148,7 @@ async function run() {
         res.status(500).send({ error: "Failed to update submission" });
       }
     });
-    
+
     // all submitted api 
     app.get("/submitted", async (req, res) => {
       const result = await submitCollection.find().toArray();
@@ -91,15 +156,38 @@ async function run() {
     })
 
     // submitted from worker
-    app.post('/submitted', async (req, res) => {
+    app.post('/tasksubmit', async (req, res) => {
       const submititem = req.body;
-      const result = await submitCollection.insertOne(submititem);
-      res.send(result);
+      const { task_id } = submititem;
+      console.log(submititem);
+      console.log(task_id);
+
+
+      try {
+        const result = await submitCollection.insertOne(submititem);
+        const taskUpdateresult = await taskCollection.updateOne(
+          { _id: new ObjectId(task_id) },
+          { $inc: { requiredWorkers: -1 } }
+
+        )
+        // console.log(taskUpdateresult);
+
+
+
+        res.send({
+          message: 'Submission created and task updated successfully',
+          submissionResult: result,
+          taskUpdateresult: taskUpdateresult,
+        });
+      } catch (error) {
+        console.error('Error creating submission or updating task:', error);
+        res.status(500).send({ error: 'Failed to create submission or update task' });
+      }
     })
 
     app.post("/create-payment-intent", async (req, res) => {
       const { amount } = req.body;
-    
+
       try {
         const paymentIntent = await stripe.paymentIntents.create({
           amount: amount, // In cents
@@ -112,10 +200,10 @@ async function run() {
       }
     });
 
-// Save Payment and Update Coins:
+    // Save Payment and Update Coins:
     app.post("/payments", async (req, res) => {
       const { paymentId, amount, userId, coinAmount } = req.body;
-    
+
       try {
         // Save payment to the database
         await db.collection("payments").insertOne({
@@ -125,31 +213,31 @@ async function run() {
           coinAmount,
           date: new Date(),
         });
-    
+
         // Update user coins
         await db.collection("users").updateOne(
           { _id: userId },
           { $inc: { coins: coinAmount } }
         );
-    
+
         res.status(200).json({ message: "Payment successful and coins updated." });
       } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message });
       }
     });
-    
+
     // update user coin 
     app.patch('/users/:email', async (req, res) => {
       const { email } = req.params;
       const { coins } = req.body;
-    
+
       try {
         const result = await userCollection.updateOne(
           { email },
           { $set: { coins } }
         );
-    
+
         if (result.modifiedCount > 0) {
           res.send({ success: true, message: "Coins updated successfully." });
         } else {
@@ -160,9 +248,9 @@ async function run() {
         res.status(500).send({ success: false, message: "Server error." });
       }
     });
-    
-   
-    
+
+
+
 
 
     // delete task data
