@@ -75,6 +75,7 @@ async function run() {
         res.status(500).send({ error: "Failed to update submission" });
       }
     });
+    
     // all submitted api 
     app.get("/submitted", async (req, res) => {
       const result = await submitCollection.find().toArray();
@@ -130,6 +131,29 @@ async function run() {
       }
     });
     
+    // update user coin 
+    app.patch('/users/:email', async (req, res) => {
+      const { email } = req.params;
+      const { coins } = req.body;
+    
+      try {
+        const result = await userCollection.updateOne(
+          { email },
+          { $set: { coins } }
+        );
+    
+        if (result.modifiedCount > 0) {
+          res.send({ success: true, message: "Coins updated successfully." });
+        } else {
+          res.send({ success: false, message: "Failed to update coins." });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ success: false, message: "Server error." });
+      }
+    });
+    
+   
     
 
 
