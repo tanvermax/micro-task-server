@@ -33,6 +33,7 @@ async function run() {
     const userCollection = client.db('earnly').collection("users");
     const taskCollection = client.db('earnly').collection("task");
     const submitCollection = client.db('earnly').collection("submitted");
+    const withdrawtCollection = client.db('earnly').collection("transitions");
 
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
@@ -59,6 +60,13 @@ async function run() {
         next();
       })
     }
+    // withsreaw
+    app.post('/withdrawals', async (req, res) => {
+      const taskitem = req.body;
+      const result = await withdrawtCollection.insertOne(taskitem);
+      res.send(result);
+    })
+
 
 
     app.patch('/submitted/:id', async (req, res) => {
