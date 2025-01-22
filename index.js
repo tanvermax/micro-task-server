@@ -228,7 +228,11 @@ async function run() {
 
     // all submitted api 
     app.get("/submitted", async (req, res) => {
-      const result = await submitCollection.find().toArray();
+     
+      const page =parseInt(req.query.page);
+      const size = parseInt(req.query.size);
+      console.log('pagination query', page, size);
+      const result = await submitCollection.find().skip(page*size).limit(size).toArray();
       res.send(result);
     })
 
@@ -327,6 +331,10 @@ async function run() {
     });
 
 
+    app.get('/submitCount', async (req, res)=>{
+      const count = await submitCollection.estimatedDocumentCount();
+      res.send({count});
+    })
 
 
 
@@ -387,22 +395,21 @@ async function run() {
       }
       const result = await userCollection.updateOne(filter, updatedData);
       res.send(result);
-
     })
+
+
+
 
     app.patch('/users/coins/:id', verifytoken, async (req, res) => {
       const id = req.params.id;
       const { coins } = req.body;
-
       if (coins === undefined) {
         return res.status(400).send({ success: false, message: "Coins value is required." });
       }
-
       const filter = { _id: new ObjectId(id) };
       const updatedData = {
         $set: { coins },
       };
-
       try {
         const result = await userCollection.updateOne(filter, updatedData);
         if (result.modifiedCount > 0) {
@@ -432,6 +439,9 @@ async function run() {
       }
       res.send({ admin })
     })
+
+
+
     // for worker 
     app.get('/users/admin/:email', verifytoken, verifyworker, async (req, res) => {
       const email = req.params.email;
@@ -444,6 +454,8 @@ async function run() {
       }
       res.send({ worker })
     })
+
+
     app.get('/users/admin/:email', verifytoken, verifybuyer, async (req, res) => {
       const email = req.params.email;
       console.log("from line", req.decoded);
@@ -476,22 +488,35 @@ async function run() {
       } catch (error) {
         console.error('error genereted JWT:', error);
         res.status(500).json({ error: 'INternal server Error' })
-
       }
-
     })
 
     // get user api
 
-    app.get('/users', verifytoken, async (req, res) => {
+    app.get('/users/role', verifytoken, async (req, res) => {
       console.log(req.headers);
 
-      const email = req.query.email;
+      const { role } = req.query;
 
+      try {
+        const filter = {};
+        if (role) filter.role = role;
+        // if (email) filter.email = email;
+
+        const users = await userCollection.find(filter).toArray(); // For multiple users
+        res.send(users);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).send({ error: 'Failed to fetch users' });
+      }
+    });
+
+
+    app.get('/users', verifytoken, async (req, res) => {
+      const email = req.query.email;
       // If email is provided, find the specific user by email
       if (email) {
         const user = await userCollection.findOne({ email: email });
-
         if (user) {
           res.send(user); // Send back the user data
         } else {
@@ -506,11 +531,7 @@ async function run() {
     });
 
 
-    // app.post('/users',async(req,res)=>{
-    //   const newuser = req.body;
-    //   const result = await userCollection.insertOne(newuser); 
-    //   res.send(result);
-    // })
+
     // usedelet
     app.delete('/users/:id', verifytoken, verifyAdmin, async (req, res) => {
       const id = req.params.id
