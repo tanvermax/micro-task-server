@@ -46,6 +46,39 @@ async function run() {
       next();
     }
 
+    const verifyworker = async (req, res, next) => {
+      const email = req.decoded.email;
+      try {
+        const query = { email: email };
+        const user = await userCollection.findOne(query);
+        if (user?.role !== 'worker') {
+          return res.status(403).send({ message: 'Forbidden : Worker only' })
+        }
+        next()
+      }
+      catch (error) {
+        res.status(500).send({ message: 'server error', error })
+      }
+    }
+
+    const verifybuyer = async (req, res, next) => {
+      const email = req.decoded.email;
+      try {
+        const query = { email: email };
+        const user = await userCollection.findOne(query);
+        if (user?.role !== 'buyer') {
+          return res.status(403).send({ message: 'Forbidden : Worker only' })
+        }
+        next()
+      }
+      catch (error) {
+        res.status(500).send({ message: 'server error', error })
+      }
+    }
+
+
+
+
     const verifytoken = (req, res, next) => {
       // console.log("inside verytoken", req.headers.authorization);
       if (!req.headers.authorization) {
@@ -90,7 +123,7 @@ async function run() {
     //   res.status(500).send({ error: 'Failed to create submission or update task' });
     // }
 
-    app.patch('/submitted/reject/:id', async (req, res) => {
+    app.patch('/submitted/reject/:id', verifytoken, async (req, res) => {
       const id = req.params.id;
       try {
         const submission = await submitCollection.findOne({ _id: new ObjectId(id) });
@@ -109,10 +142,9 @@ async function run() {
 
 
         const result = await submitCollection.updateOne(filter, updatedData);
-
         const taskUpdateresult = await taskCollection.updateOne(
           { _id: new ObjectId(task_id) },
-          { $inc: { requiredWorkers: 1 } }
+          { $inc: { requiredWorkers: +1 } }
 
         )
         // console.log(taskUpdateresult);
@@ -128,8 +160,36 @@ async function run() {
     });
 
 
+    //  app.post('/tasksubmit',verifytoken, async (req, res) => {
+    //   const submititem = req.body;
+    //   const { task_id } = submititem;
+    //   console.log(submititem);
+    //   console.log(task_id);
+
+
+    //   try {
+    //     const result = await submitCollection.insertOne(submititem);
+    //     const taskUpdateresult = await taskCollection.updateOne(
+    //       { _id: new ObjectId(task_id) },
+    //       { $inc: { requiredWorkers: -1 } }
+
+    //     )
+    //     // console.log(taskUpdateresult);
+
+
+
+    //     res.send({
+    //       message: 'Submission created and task updated successfully',
+    //       submissionResult: result,
+    //       taskUpdateresult: taskUpdateresult,
+    //     });
+    //   } catch (error) {
+    //     console.error('Error creating submission or updating task:', error);
+    //     res.status(500).send({ error: 'Failed to create submission or update task' });
+    //   }
+    // })
     // approve
-    app.patch('/submitted/:id', async (req, res) => {
+    app.patch('/submitted/:id', verifytoken, async (req, res) => {
       const id = req.params.id;
       // console.log(id);
 
@@ -141,8 +201,25 @@ async function run() {
         // console.log(filter);
         // console.log(updatedData);
 
-        const result = await submitCollection.updateOne(filter, updatedData);
-        res.send(result);
+        const submission = await submitCollection.updateOne(filter, updatedData);
+        if (submission.modifiedCount === 0) {
+          return res.status(404).send({ message: 'Submission not found or already updated' });
+        }
+        const updatedSubmission = await submitCollection.findOne(filter);
+        const userEmail = updatedSubmission.worker_email;
+        const coinincr = parseInt(updatedSubmission.payable_amount);
+
+        const userDilter = { email: userEmail }; // typo corrected from userDilter to userFilter
+        const coinUpdate = {
+          $inc: { coins: coinincr },
+        };
+
+        const userResult = await userCollection.updateOne(userDilter, coinUpdate);
+        res.send({
+          message: 'Submission approved and coins updated successfully',
+          submissionResult: updatedSubmission,
+          userResult: userResult,
+        });
       } catch (error) {
         console.error("Error updating submission:", error);
         res.status(500).send({ error: "Failed to update submission" });
@@ -156,7 +233,7 @@ async function run() {
     })
 
     // submitted from worker
-    app.post('/tasksubmit', async (req, res) => {
+    app.post('/tasksubmit', verifytoken, async (req, res) => {
       const submititem = req.body;
       const { task_id } = submititem;
       console.log(submititem);
@@ -268,7 +345,7 @@ async function run() {
       res.send(task);
     })
     // update task field api
-    app.put("/task/:id", async (req, res) => {
+    app.put("/task/:id", verifytoken, async (req, res) => {
       const taskId = req.params.id;
       const updatedData = req.body;
 
@@ -347,11 +424,6 @@ async function run() {
     app.get('/users/admin/:email', verifytoken, verifyAdmin, async (req, res) => {
       const email = req.params.email;
       console.log("from line", req.decoded);
-
-      // if (email !== req.decoded.email) {
-
-      //   return res.status(403).send({ message: 'unathorized access' })
-      // }
       const query = { email: email };
       const user = await userCollection.findOne(query);
       let admin = false;
@@ -360,6 +432,30 @@ async function run() {
       }
       res.send({ admin })
     })
+    // for worker 
+    app.get('/users/admin/:email', verifytoken, verifyworker, async (req, res) => {
+      const email = req.params.email;
+      console.log("from line", req.decoded);
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let worker = false;
+      if (user) {
+        worker = user?.role === 'worker'
+      }
+      res.send({ worker })
+    })
+    app.get('/users/admin/:email', verifytoken, verifybuyer, async (req, res) => {
+      const email = req.params.email;
+      console.log("from line", req.decoded);
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let buyer = false;
+      if (user) {
+        buyer = user?.role === 'buyer'
+      }
+      res.send({ buyer })
+    })
+
 
 
     //   app.patch('/users/admin/:id', async (req, res) => {
