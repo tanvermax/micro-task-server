@@ -103,6 +103,8 @@ async function run() {
         next();
       })
     }
+
+
     // withsreaw
     app.post('/withdrawals', async (req, res) => {
       const taskitem = req.body;
@@ -111,20 +113,20 @@ async function run() {
     })
 
     // trasnsictioin
-    app.post('/transit', async (req, res) => {
+    app.post('/transit',verifybuyer,verifytoken, async (req, res) => {
       const taskitem = req.body;
       const result = await trasnsitCollection.insertOne(taskitem);
       res.send(result);
     })
     // get payment info al
-    app.get('/transit', async(req,res)=>{
+    app.get('/transit', async (req, res) => {
       const transit = await trasnsitCollection.find().toArray();
       res.send(transit)
     })
 
 
     //creat trasniction history
-    app.post("/createpaymentintent", async (req, res) => {
+    app.post("/createpaymentintent",verifytoken, async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
       console.log(amount, "amount inside intent");
@@ -279,7 +281,7 @@ async function run() {
 
 
     // submitted from worker
-    app.post('/tasksubmit', verifytoken, async (req, res) => {
+    app.post('/tasksubmit', verifytoken,verifyworker, async (req, res) => {
       const submititem = req.body;
       const { task_id } = submititem;
       console.log(submititem);
@@ -360,9 +362,11 @@ async function run() {
 
       const page = parseInt(req.query.page);
       const size = parseInt(req.query.size);
-
-      console.log('pagination query', page, size);
-      const result = await submitCollection.find().skip(page * size).limit(size).toArray();
+   const userEmail = req.query.userEmail;
+      const filter = { worker_email: userEmail }
+      console.log('pagination query', page, size, userEmail);
+      // console.log('pagination query', page, size);
+      const result = await submitCollection.find(filter).skip(page * size).limit(size).toArray();
       res.send(result);
     })
 
@@ -415,7 +419,7 @@ async function run() {
 
 
     // task api 
-    app.post('/task', async (req, res) => {
+    app.post('/task',verifybuyer,verifytoken, async (req, res) => {
       const taskitem = req.body;
       const result = await taskCollection.insertOne(taskitem);
       res.send(result);
@@ -423,7 +427,7 @@ async function run() {
 
     //for making admin api
 
-    app.patch('/users/admin/:id', verifytoken, verifyAdmin, async (req, res) => {
+    app.patch('/users/admin/:id', verifytoken, async (req, res) => {
       const id = req.params.id;
       const { role } = req.body;
 
@@ -481,7 +485,7 @@ async function run() {
 
 
     // for admin
-    app.get('/users/admin/:email', verifytoken, verifyAdmin, async (req, res) => {
+    app.get('/users/admin/:email', verifytoken, async (req, res) => {
       const email = req.params.email;
       console.log("from line", req.decoded);
       const query = { email: email };
@@ -496,7 +500,7 @@ async function run() {
 
 
     // for worker 
-    app.get('/users/admin/:email', verifytoken, verifyworker, async (req, res) => {
+    app.get('/users/admin/:email', verifytoken, async (req, res) => {
       const email = req.params.email;
       console.log("from line", req.decoded);
       const query = { email: email };
@@ -509,7 +513,7 @@ async function run() {
     })
 
 
-    app.get('/users/admin/:email', verifytoken, verifybuyer, async (req, res) => {
+    app.get('/users/admin/:email', verifytoken, async (req, res) => {
       const email = req.params.email;
       console.log("from line", req.decoded);
       const query = { email: email };
@@ -556,8 +560,11 @@ async function run() {
         if (role) filter.role = role;
         // if (email) filter.email = email;
 
-        const users = await userCollection.find(filter).toArray(); // For multiple users
-        res.send(users);
+
+        const users = await userCollection.find(filter).limit(6).toArray();
+        const sortedUser = users.sort((a, b) => b.coins - a.coins)
+        // For multiple users
+        res.send(sortedUser);
       } catch (error) {
         console.error('Error fetching users:', error);
         res.status(500).send({ error: 'Failed to fetch users' });
