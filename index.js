@@ -5,7 +5,7 @@ const cors = require('cors');
 require('dotenv').config();
 const cookieParser = require('cookie-parser');
 const port = process.env.PORT || 5000;
-// const stripe = require('stripe')(process.env.STRIPE_TOKEN_SECREC)
+const stripe = require('stripe')(process.env.STRIPE_TOKEN_SECREC)
 
 app.use(cors())
 app.use(express.json());
@@ -36,15 +36,24 @@ async function run() {
     const withdrawtCollection = client.db('earnly').collection("transitions");
 
     const verifyAdmin = async (req, res, next) => {
-      const email = req.decoded.email;
+      const email = req.decoded.email;  // Extract email from decoded token
       const query = { email: email };
-      const user = await userCollection.findOne(query)
-      const isAdmin = user?.role === 'admin';
-      if (!isAdmin) {
-        return res.status(403).send({ message: 'forbidden access' })
+
+      // Fetch user from database
+      const user = await userCollection.findOne(query);
+
+      if (!user) {
+        return res.status(404).send({ message: 'User not found' });
       }
+
+      // Check if user has admin role
+      const isAdmin = user.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).send({ message: 'Forbidden access: You are not an admin' });
+      }
+
       next();
-    }
+    };
 
     const verifyworker = async (req, res, next) => {
       const email = req.decoded.email;
@@ -100,6 +109,52 @@ async function run() {
       res.send(result);
     })
 
+
+    app.post("/createpaymentintent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      console.log(amount, "amount inside intent");
+
+
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount, // In cents
+        currency: "usd",
+        payment_method_types: ['card']
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret
+        
+      });
+
+    });
+
+    // Save Payment and Update Coins:
+    app.post("/payments", async (req, res) => {
+      const { paymentId, amount, userId, coinAmount } = req.body;
+
+      try {
+        // Save payment to the database
+        await db.collection("payments").insertOne({
+          paymentId,
+          amount,
+          userId,
+          coinAmount,
+          date: new Date(),
+        });
+
+        // Update user coins
+        await db.collection("users").updateOne(
+          { _id: userId },
+          { $inc: { coins: coinAmount } }
+        );
+
+        res.status(200).json({ message: "Payment successful and coins updated." });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+      }
+    });
     // rejected
 
     // try {
@@ -160,35 +215,7 @@ async function run() {
     });
 
 
-    //  app.post('/tasksubmit',verifytoken, async (req, res) => {
-    //   const submititem = req.body;
-    //   const { task_id } = submititem;
-    //   console.log(submititem);
-    //   console.log(task_id);
 
-
-    //   try {
-    //     const result = await submitCollection.insertOne(submititem);
-    //     const taskUpdateresult = await taskCollection.updateOne(
-    //       { _id: new ObjectId(task_id) },
-    //       { $inc: { requiredWorkers: -1 } }
-
-    //     )
-    //     // console.log(taskUpdateresult);
-
-
-
-    //     res.send({
-    //       message: 'Submission created and task updated successfully',
-    //       submissionResult: result,
-    //       taskUpdateresult: taskUpdateresult,
-    //     });
-    //   } catch (error) {
-    //     console.error('Error creating submission or updating task:', error);
-    //     res.status(500).send({ error: 'Failed to create submission or update task' });
-    //   }
-    // })
-    // approve
     app.patch('/submitted/:id', verifytoken, async (req, res) => {
       const id = req.params.id;
       // console.log(id);
@@ -227,14 +254,15 @@ async function run() {
     });
 
     // all submitted api 
-    app.get("/submitted", async (req, res) => {
-     
-      const page =parseInt(req.query.page);
-      const size = parseInt(req.query.size);
-      console.log('pagination query', page, size);
-      const result = await submitCollection.find().skip(page*size).limit(size).toArray();
-      res.send(result);
-    })
+
+
+    // app.get('/users/worker', async (req, res) => {
+    //   const { role } = req.query;
+    //   const workers = await User.find({ role })
+    //     .sort({ coins: -1 }); // Sort by coins in descending order
+    //   res.json(workers);
+    // });
+
 
     // submitted from worker
     app.post('/tasksubmit', verifytoken, async (req, res) => {
@@ -264,49 +292,12 @@ async function run() {
         console.error('Error creating submission or updating task:', error);
         res.status(500).send({ error: 'Failed to create submission or update task' });
       }
-    })
-
-    app.post("/create-payment-intent", async (req, res) => {
-      const { amount } = req.body;
-
-      try {
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: amount, // In cents
-          currency: "usd",
-        });
-        res.json({ clientSecret: paymentIntent.client_secret });
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error.message });
-      }
     });
 
-    // Save Payment and Update Coins:
-    app.post("/payments", async (req, res) => {
-      const { paymentId, amount, userId, coinAmount } = req.body;
 
-      try {
-        // Save payment to the database
-        await db.collection("payments").insertOne({
-          paymentId,
-          amount,
-          userId,
-          coinAmount,
-          date: new Date(),
-        });
+    // create payment
 
-        // Update user coins
-        await db.collection("users").updateOne(
-          { _id: userId },
-          { $inc: { coins: coinAmount } }
-        );
 
-        res.status(200).json({ message: "Payment successful and coins updated." });
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error.message });
-      }
-    });
 
     // update user coin 
     app.patch('/users/:email', async (req, res) => {
@@ -330,10 +321,22 @@ async function run() {
       }
     });
 
+    app.get("/submitted", async (req, res) => {
 
-    app.get('/submitCount', async (req, res)=>{
+      const page = parseInt(req.query.page);
+      const size = parseInt(req.query.size);
+
+      console.log('pagination query', page, size);
+      const result = await submitCollection.find().skip(page * size).limit(size).toArray();
+      res.send(result);
+    })
+
+    // for pagination
+    app.get('/submitCount', async (req, res) => {
       const count = await submitCollection.estimatedDocumentCount();
-      res.send({count});
+      console.log(count);
+
+      res.send({ count });
     })
 
 
@@ -387,14 +390,29 @@ async function run() {
 
     app.patch('/users/admin/:id', verifytoken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
+      const { role } = req.body;
+
+      const validROls = ['admin', 'worker', 'buyer'];
+      if (!validROls.includes(role)) {
+        return res.status(400).send({ error: "Invalid role provided" });
+      }
       const filter = { _id: new ObjectId(id) };
       const updatedData = {
         $set: {
-          role: "admin"
+          role: role
         }
       }
-      const result = await userCollection.updateOne(filter, updatedData);
-      res.send(result);
+      try {
+        const result = await userCollection.updateOne(filter, updatedData);
+        if (result.modifiedCount > 0) {
+          res.send({ success: true, message: `Role updated to ${role}` });
+        } else {
+          res.status(404).send({ success: false, message: "User not found or role unchanged" });
+        }
+      } catch (error) {
+        console.error("Error updating role:", error);
+        res.status(500).send({ success: false, message: "Internal server error" });
+      }
     })
 
 
