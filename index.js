@@ -35,6 +35,7 @@ async function run() {
     const submitCollection = client.db('earnly').collection("submitted");
     const withdrawtCollection = client.db('earnly').collection("transitions");
     const trasnsitCollection = client.db('earnly').collection("usertransiction");
+    const notificationCollection = client.db('earnly').collection("notification");
 
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;  // Extract email from decoded token
@@ -118,45 +119,8 @@ async function run() {
       res.send(result);
     })
 
-    // withdawr appove
 
 
-    // app.patch('/submitted/:id', async (req, res) => {
-    //   const id = req.params.id;
-    //   // console.log(id);
-
-    //   try {
-    //     const filter = { _id: new ObjectId(id) }; // Convert to ObjectId
-    //     const updatedData = {
-    //       $set: { status: "approve" },
-    //     };
-    //     // console.log(filter);
-    //     // console.log(updatedData);
-
-    //     const submission = await submitCollection.updateOne(filter, updatedData);
-    //     if (submission.modifiedCount === 0) {
-    //       return res.status(404).send({ message: 'Submission not found or already updated' });
-    //     }
-    //     const updatedSubmission = await submitCollection.findOne(filter);
-    //     const userEmail = updatedSubmission.worker_email;
-    //     const coinincr = parseInt(updatedSubmission.payable_amount);
-
-    //     const userFilter = { email: userEmail };
-    //     const coinUpdate = {
-    //       $inc: { coins: coinincr },
-    //     };
-
-    //     const userResult = await userCollection.updateOne(userFilter, coinUpdate);
-    //     res.send({
-    //       message: 'Submission approved and coins updated successfully',
-    //       submissionResult: updatedSubmission,
-    //       userResult: userResult,
-    //     });
-    //   } catch (error) {
-    //     console.error("Error updating submission:", error);
-    //     res.status(500).send({ error: "Failed to update submission" });
-    //   }
-    // });
 
     app.patch('/withdrawals/:id', async (req, res) => {
       const id = req.params.id;
@@ -176,7 +140,8 @@ async function run() {
 
         const updatedSubmission = await withdrawtCollection.findOne(filter);
         const userEmail = updatedSubmission.worker_email;
-        console.log(updatedSubmission);
+
+        // console.log(updatedSubmission);
 
         const coinAmount = parseInt(updatedSubmission.withdrawal_coin);
 
@@ -207,6 +172,20 @@ async function run() {
       const result = await trasnsitCollection.insertOne(taskitem);
       res.send(result);
     })
+
+
+    app.post('/newnotificatio', async (req, res) => {
+      const notifi = req.body;
+      const result = await notificationCollection.insertOne(notifi);
+      res.send(result);
+    })
+
+    app.get('/newnotificatio', async (req, res) => {
+      const transit = await notificationCollection.find().toArray();
+      res.send(transit)
+    })
+
+
 
 
     // get payment info al
