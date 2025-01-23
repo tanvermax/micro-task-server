@@ -34,6 +34,7 @@ async function run() {
     const taskCollection = client.db('earnly').collection("task");
     const submitCollection = client.db('earnly').collection("submitted");
     const withdrawtCollection = client.db('earnly').collection("transitions");
+    const trasnsitCollection = client.db('earnly').collection("usertransiction");
 
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;  // Extract email from decoded token
@@ -109,7 +110,20 @@ async function run() {
       res.send(result);
     })
 
+    // trasnsictioin
+    app.post('/transit', async (req, res) => {
+      const taskitem = req.body;
+      const result = await trasnsitCollection.insertOne(taskitem);
+      res.send(result);
+    })
+    // get payment info al
+    app.get('/transit', async(req,res)=>{
+      const transit = await trasnsitCollection.find().toArray();
+      res.send(transit)
+    })
 
+
+    //creat trasniction history
     app.post("/createpaymentintent", async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
@@ -124,7 +138,7 @@ async function run() {
       });
       res.send({
         clientSecret: paymentIntent.client_secret
-        
+
       });
 
     });
@@ -296,8 +310,29 @@ async function run() {
 
 
     // create payment
+    app.patch("/users", async (req, res) => {
+      try {
+        const { email, coins } = req.body;
 
+        if (!email) {
+          return res.status(400).json({ message: "Email is required" });
+        }
 
+        const result = await userCollection.updateOne(
+          { email }, // Query to find the user
+          { $set: { coins } } // Update user's coins
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        res.status(200).json({ message: "User coins updated", coins });
+      } catch (error) {
+        console.error("Error updating user coins:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
 
     // update user coin 
     app.patch('/users/:email', async (req, res) => {
