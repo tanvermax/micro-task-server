@@ -112,12 +112,103 @@ async function run() {
       res.send(result);
     })
 
+
+    app.get('/withdrawals', async (req, res) => {
+      const result = await withdrawtCollection.find().toArray();
+      res.send(result);
+    })
+
+    // withdawr appove
+
+
+    // app.patch('/submitted/:id', async (req, res) => {
+    //   const id = req.params.id;
+    //   // console.log(id);
+
+    //   try {
+    //     const filter = { _id: new ObjectId(id) }; // Convert to ObjectId
+    //     const updatedData = {
+    //       $set: { status: "approve" },
+    //     };
+    //     // console.log(filter);
+    //     // console.log(updatedData);
+
+    //     const submission = await submitCollection.updateOne(filter, updatedData);
+    //     if (submission.modifiedCount === 0) {
+    //       return res.status(404).send({ message: 'Submission not found or already updated' });
+    //     }
+    //     const updatedSubmission = await submitCollection.findOne(filter);
+    //     const userEmail = updatedSubmission.worker_email;
+    //     const coinincr = parseInt(updatedSubmission.payable_amount);
+
+    //     const userFilter = { email: userEmail };
+    //     const coinUpdate = {
+    //       $inc: { coins: coinincr },
+    //     };
+
+    //     const userResult = await userCollection.updateOne(userFilter, coinUpdate);
+    //     res.send({
+    //       message: 'Submission approved and coins updated successfully',
+    //       submissionResult: updatedSubmission,
+    //       userResult: userResult,
+    //     });
+    //   } catch (error) {
+    //     console.error("Error updating submission:", error);
+    //     res.status(500).send({ error: "Failed to update submission" });
+    //   }
+    // });
+
+    app.patch('/withdrawals/:id', async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+
+      try {
+
+        const filter = { _id: new ObjectId(id) };
+        // Convert to ObjectId
+        const updatedData = {
+          $set: { status: "approve" },
+        };
+        const result = await withdrawtCollection.updateOne(filter, updatedData);
+        if (result.modifiedCount === 0) {
+          return res.status(400).send({ error: "No document found or already approved" });
+        }
+
+        const updatedSubmission = await withdrawtCollection.findOne(filter);
+        const userEmail = updatedSubmission.worker_email;
+        console.log(updatedSubmission);
+
+        const coinAmount = parseInt(updatedSubmission.withdrawal_coin);
+
+        const userFilter = { email: userEmail };
+        console.log(userFilter);
+
+        const coinUpdate = {
+          $inc: { coins: -coinAmount },
+        };
+        const userResult = await userCollection.updateOne(userFilter, coinUpdate);
+
+        res.send({
+          message: 'Submission approved and coins updated successfully',
+          submissionResult: updatedSubmission,
+          userResult: userResult,
+        });
+      } catch (error) {
+        console.error("Error updating submission:", error);
+        res.status(500).send({ error: "Failed to update submission" });
+      }
+
+
+    })
+
     // trasnsictioin
-    app.post('/transit',verifybuyer,verifytoken, async (req, res) => {
+    app.post('/transit', verifybuyer, verifytoken, async (req, res) => {
       const taskitem = req.body;
       const result = await trasnsitCollection.insertOne(taskitem);
       res.send(result);
     })
+
+
     // get payment info al
     app.get('/transit', async (req, res) => {
       const transit = await trasnsitCollection.find().toArray();
@@ -126,7 +217,7 @@ async function run() {
 
 
     //creat trasniction history
-    app.post("/createpaymentintent",verifytoken, async (req, res) => {
+    app.post("/createpaymentintent", verifytoken, async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
       console.log(amount, "amount inside intent");
@@ -232,7 +323,7 @@ async function run() {
 
 
 
-    app.patch('/submitted/:id', verifytoken, async (req, res) => {
+    app.patch('/submitted/:id', async (req, res) => {
       const id = req.params.id;
       // console.log(id);
 
@@ -252,12 +343,12 @@ async function run() {
         const userEmail = updatedSubmission.worker_email;
         const coinincr = parseInt(updatedSubmission.payable_amount);
 
-        const userDilter = { email: userEmail }; // typo corrected from userDilter to userFilter
+        const userFilter = { email: userEmail };
         const coinUpdate = {
           $inc: { coins: coinincr },
         };
 
-        const userResult = await userCollection.updateOne(userDilter, coinUpdate);
+        const userResult = await userCollection.updateOne(userFilter, coinUpdate);
         res.send({
           message: 'Submission approved and coins updated successfully',
           submissionResult: updatedSubmission,
@@ -281,7 +372,7 @@ async function run() {
 
 
     // submitted from worker
-    app.post('/tasksubmit', verifytoken,verifyworker, async (req, res) => {
+    app.post('/tasksubmit', verifytoken, verifyworker, async (req, res) => {
       const submititem = req.body;
       const { task_id } = submititem;
       console.log(submititem);
@@ -362,13 +453,32 @@ async function run() {
 
       const page = parseInt(req.query.page);
       const size = parseInt(req.query.size);
-   const userEmail = req.query.userEmail;
+      const userEmail = req.query.userEmail;
       const filter = { worker_email: userEmail }
       console.log('pagination query', page, size, userEmail);
       // console.log('pagination query', page, size);
       const result = await submitCollection.find(filter).skip(page * size).limit(size).toArray();
       res.send(result);
     })
+
+    app.get("/totoalsubmitted", async (req, res) => {
+
+
+      const result = await submitCollection.find().toArray();
+      res.send(result);
+    })
+
+
+    app.get("/subar", async (req, res) => {
+      const result = await submitCollection.find().toArray();
+      res.send(result);
+    });
+
+    // app.get("/task", async (req, res) => {
+    //   const result = await taskCollection.find().toArray();
+    //   res.send(result);
+    // })
+
 
     // for pagination
     app.get('/submitCount', async (req, res) => {
@@ -419,7 +529,7 @@ async function run() {
 
 
     // task api 
-    app.post('/task',verifybuyer,verifytoken, async (req, res) => {
+    app.post('/task', verifybuyer, verifytoken, async (req, res) => {
       const taskitem = req.body;
       const result = await taskCollection.insertOne(taskitem);
       res.send(result);
