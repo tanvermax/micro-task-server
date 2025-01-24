@@ -59,8 +59,9 @@ async function run() {
 
     const verifyworker = async (req, res, next) => {
       const email = req.decoded.email;
+      const query = { email: email };
+
       try {
-        const query = { email: email };
         const user = await userCollection.findOne(query);
         if (user?.role !== 'worker') {
           return res.status(403).send({ message: 'Forbidden : Worker only' })
@@ -71,6 +72,7 @@ async function run() {
         res.status(500).send({ message: 'server error', error })
       }
     }
+
 
     const verifybuyer = async (req, res, next) => {
       const email = req.decoded.email;
@@ -167,7 +169,7 @@ async function run() {
     })
 
     // trasnsictioin
-    app.post('/transit', verifybuyer, verifytoken, async (req, res) => {
+    app.post('/transit', verifytoken, async (req, res) => {
       const taskitem = req.body;
       const result = await trasnsitCollection.insertOne(taskitem);
       res.send(result);
