@@ -37,6 +37,23 @@ async function run() {
     const trasnsitCollection = client.db('earnly').collection("usertransiction");
     const notificationCollection = client.db('earnly').collection("notification");
 
+
+
+    const verifyworker = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+
+      try {
+        const user = await userCollection.findOne(query);
+        if (user?.role !== 'worker') {
+          return res.status(403).send({ message: 'Forbidden : Worker only' })
+        }
+        next()
+      }
+      catch (error) {
+        res.status(500).send({ message: 'server error', error })
+      }
+    }
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;  // Extract email from decoded token
       const query = { email: email };
@@ -57,37 +74,26 @@ async function run() {
       next();
     };
 
-    const verifyworker = async (req, res, next) => {
+    const verifybuyer = async (req, res, next) => {
       const email = req.decoded.email;
       const query = { email: email };
 
-      try {
-        const user = await userCollection.findOne(query);
-        if (user?.role !== 'worker') {
-          return res.status(403).send({ message: 'Forbidden : Worker only' })
-        }
-        next()
+
+      const user = await userCollection.findOne(query);
+      if (!user) {
+        return res.status(404).send({ message: 'User not found' });
       }
-      catch (error) {
-        res.status(500).send({ message: 'server error', error })
+      const isBuyer = user.role === 'buyer';
+      if (!isBuyer) {
+        return res.status(403).send({ message: 'Forbidden access: You are not an buyer' })
       }
+
+      // const isAdmin = user.role === 'admin';
+
+      next()
     }
 
 
-    const verifybuyer = async (req, res, next) => {
-      const email = req.decoded.email;
-      try {
-        const query = { email: email };
-        const user = await userCollection.findOne(query);
-        if (user?.role !== 'buyer') {
-          return res.status(403).send({ message: 'Forbidden : Worker only' })
-        }
-        next()
-      }
-      catch (error) {
-        res.status(500).send({ message: 'server error', error })
-      }
-    }
 
 
 
@@ -109,14 +115,14 @@ async function run() {
 
 
     // withsreaw
-    app.post('/withdrawals', async (req, res) => {
+    app.post('/withdrawals',verifytoken, async (req, res) => {
       const taskitem = req.body;
       const result = await withdrawtCollection.insertOne(taskitem);
       res.send(result);
     })
 
 
-    app.get('/withdrawals', async (req, res) => {
+    app.get('/withdrawals',verifytoken, async (req, res) => {
       const result = await withdrawtCollection.find().toArray();
       res.send(result);
     })
@@ -124,7 +130,7 @@ async function run() {
 
 
 
-    app.patch('/withdrawals/:id', async (req, res) => {
+    app.patch('/withdrawals/:id',verifytoken, async (req, res) => {
       const id = req.params.id;
       console.log(id);
 
@@ -167,6 +173,12 @@ async function run() {
 
 
     })
+    // tasnsition list
+    // app.get('/transit', async (req, res) => {
+    //   // const taskitem = req.body;
+    //   const result = await trasnsitCollection.find().toArray();
+    //   res.send(result);
+    // })
 
     // trasnsictioin
     app.post('/transit', verifytoken, async (req, res) => {
@@ -176,13 +188,13 @@ async function run() {
     })
 
 
-    app.post('/newnotificatio', async (req, res) => {
+    app.post('/newnotificatio',verifytoken, async (req, res) => {
       const notifi = req.body;
       const result = await notificationCollection.insertOne(notifi);
       res.send(result);
     })
 
-    app.get('/newnotificatio', async (req, res) => {
+    app.get('/newnotificatio',verifytoken, async (req, res) => {
       const transit = await notificationCollection.find().toArray();
       res.send(transit)
     })
@@ -191,7 +203,7 @@ async function run() {
 
 
     // get payment info al
-    app.get('/transit', async (req, res) => {
+    app.get('/transit',verifytoken, async (req, res) => {
       const transit = await trasnsitCollection.find().toArray();
       res.send(transit)
     })
@@ -218,7 +230,7 @@ async function run() {
     });
 
     // Save Payment and Update Coins:
-    app.post("/payments", async (req, res) => {
+    app.post("/payments",verifytoken, async (req, res) => {
       const { paymentId, amount, userId, coinAmount } = req.body;
 
       try {
@@ -304,7 +316,7 @@ async function run() {
 
 
 
-    app.patch('/submitted/:id', async (req, res) => {
+    app.patch('/submitted/:id',verifytoken, async (req, res) => {
       const id = req.params.id;
       // console.log(id);
 
@@ -353,7 +365,7 @@ async function run() {
 
 
     // submitted from worker
-    app.post('/tasksubmit', verifytoken, verifyworker, async (req, res) => {
+    app.post('/tasksubmit', verifytoken, async (req, res) => {
       const submititem = req.body;
       const { task_id } = submititem;
       console.log(submititem);
@@ -384,7 +396,7 @@ async function run() {
 
 
     // create payment
-    app.patch("/users", async (req, res) => {
+    app.patch("/users",verifytoken, async (req, res) => {
       try {
         const { email, coins } = req.body;
 
@@ -409,7 +421,7 @@ async function run() {
     });
 
     // update user coin 
-    app.patch('/users/:email', async (req, res) => {
+    app.patch('/users/:email',verifytoken, async (req, res) => {
       const { email } = req.params;
       const { coins } = req.body;
 
@@ -462,7 +474,7 @@ async function run() {
 
 
     // for pagination
-    app.get('/submitCount', async (req, res) => {
+    app.get('/submitCount',verifytoken, async (req, res) => {
       const count = await submitCollection.estimatedDocumentCount();
       console.log(count);
 
@@ -472,14 +484,14 @@ async function run() {
 
 
     // delete task data
-    app.delete('/task/:id', async (req, res) => {
+    app.delete('/task/:id',verifytoken, async (req, res) => {
       const id = req.params.id
       const query = { _id: new ObjectId(id) }
       const result = await taskCollection.deleteOne(query);
       res.send(result);
     })
     // create individual task cllect 
-    app.get('/task/:id', async (req, res) => {
+    app.get('/task/:id',verifytoken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const task = await taskCollection.findOne(query);
@@ -503,14 +515,14 @@ async function run() {
     });
 
     // all task api 
-    app.get("/task", async (req, res) => {
+    app.get("/task",verifytoken, async (req, res) => {
       const result = await taskCollection.find().toArray();
       res.send(result);
     })
 
 
     // task api 
-    app.post('/task', verifybuyer, verifytoken, async (req, res) => {
+    app.post('/task', verifytoken, async (req, res) => {
       const taskitem = req.body;
       const result = await taskCollection.insertOne(taskitem);
       res.send(result);
@@ -627,7 +639,7 @@ async function run() {
     // });
 
     // jwt token
-    app.post('/jwt', (req, res) => {
+    app.post('/jwt',verifytoken, (req, res) => {
       try {
         const user = req.body;
         const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '5h' })
@@ -694,7 +706,7 @@ async function run() {
     // new useer
 
 
-    app.post("/users", async (req, res) => {
+    app.post("/users",verifytoken, async (req, res) => {
 
       try {
         const newuser = req.body;
