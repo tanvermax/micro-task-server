@@ -115,24 +115,24 @@ async function run() {
 
 
     // withsreaw
-    app.post('/withdrawals',verifytoken, async (req, res) => {
+    app.post('/withdrawals', verifytoken, async (req, res) => {
       const taskitem = req.body;
       const result = await withdrawtCollection.insertOne(taskitem);
       res.send(result);
     })
 
 
-    app.get('/withdrawals',verifytoken, async (req, res) => {
+    app.get('/withdrawals', verifytoken, async (req, res) => {
       const result = await withdrawtCollection.find().toArray();
       // console.log("the data",result);
-      
+
       res.send(result);
     })
 
 
 
 
-    app.patch('/withdrawals/:id',verifytoken, async (req, res) => {
+    app.patch('/withdrawals/:id', verifytoken, async (req, res) => {
       const id = req.params.id;
       console.log(id);
 
@@ -190,7 +190,7 @@ async function run() {
     })
 
 
-    app.post('/newnotificatio',verifytoken, async (req, res) => {
+    app.post('/newnotificatio', verifytoken, async (req, res) => {
       const notifi = req.body;
       const result = await notificationCollection.insertOne(notifi);
       res.send(result);
@@ -232,7 +232,7 @@ async function run() {
     });
 
     // Save Payment and Update Coins:
-    app.post("/payments",verifytoken, async (req, res) => {
+    app.post("/payments", verifytoken, async (req, res) => {
       const { paymentId, amount, userId, coinAmount } = req.body;
 
       try {
@@ -318,7 +318,7 @@ async function run() {
 
 
 
-    app.patch('/submitted/:id',verifytoken, async (req, res) => {
+    app.patch('/submitted/:id', verifytoken, async (req, res) => {
       const id = req.params.id;
       // console.log(id);
 
@@ -398,7 +398,7 @@ async function run() {
 
 
     // create payment
-    app.patch("/users",verifytoken, async (req, res) => {
+    app.patch("/users", verifytoken, async (req, res) => {
       try {
         const { email, coins } = req.body;
 
@@ -423,7 +423,7 @@ async function run() {
     });
 
     // update user coin 
-    app.patch('/users/:email',verifytoken, async (req, res) => {
+    app.patch('/users/:email', verifytoken, async (req, res) => {
       const { email } = req.params;
       const { coins } = req.body;
 
@@ -483,13 +483,15 @@ async function run() {
 
 
 
-    // delete task data
     app.delete('/task/:id',verifytoken, async (req, res) => {
       const id = req.params.id
       const query = { _id: new ObjectId(id) }
       const result = await taskCollection.deleteOne(query);
       res.send(result);
     })
+  
+
+
     // create individual task cllect 
     app.get('/task/:id', async (req, res) => {
       const id = req.params.id;
@@ -563,6 +565,8 @@ async function run() {
     app.patch('/users/coins/:id', verifytoken, async (req, res) => {
       const id = req.params.id;
       const { coins } = req.body;
+      console.log(coins);
+      
       if (coins === undefined) {
         return res.status(400).send({ success: false, message: "Coins value is required." });
       }
