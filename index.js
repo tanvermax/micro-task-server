@@ -124,6 +124,8 @@ async function run() {
 
     app.get('/withdrawals',verifytoken, async (req, res) => {
       const result = await withdrawtCollection.find().toArray();
+      // console.log("the data",result);
+      
       res.send(result);
     })
 
@@ -194,7 +196,7 @@ async function run() {
       res.send(result);
     })
 
-    app.get('/newnotificatio',verifytoken, async (req, res) => {
+    app.get('/newnotificatio', async (req, res) => {
       const transit = await notificationCollection.find().toArray();
       res.send(transit)
     })
@@ -203,7 +205,7 @@ async function run() {
 
 
     // get payment info al
-    app.get('/transit',verifytoken, async (req, res) => {
+    app.get('/transit', async (req, res) => {
       const transit = await trasnsitCollection.find().toArray();
       res.send(transit)
     })
@@ -455,8 +457,6 @@ async function run() {
     })
 
     app.get("/totoalsubmitted", async (req, res) => {
-
-
       const result = await submitCollection.find().toArray();
       res.send(result);
     })
@@ -474,7 +474,7 @@ async function run() {
 
 
     // for pagination
-    app.get('/submitCount',verifytoken, async (req, res) => {
+    app.get('/submitCount', async (req, res) => {
       const count = await submitCollection.estimatedDocumentCount();
       console.log(count);
 
@@ -491,7 +491,7 @@ async function run() {
       res.send(result);
     })
     // create individual task cllect 
-    app.get('/task/:id',verifytoken, async (req, res) => {
+    app.get('/task/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const task = await taskCollection.findOne(query);
@@ -515,7 +515,7 @@ async function run() {
     });
 
     // all task api 
-    app.get("/task",verifytoken, async (req, res) => {
+    app.get("/task", async (req, res) => {
       const result = await taskCollection.find().toArray();
       res.send(result);
     })
@@ -639,7 +639,7 @@ async function run() {
     // });
 
     // jwt token
-    app.post('/jwt',verifytoken, (req, res) => {
+    app.post('/jwt', (req, res) => {
       try {
         const user = req.body;
         const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '5h' })
@@ -706,7 +706,7 @@ async function run() {
     // new useer
 
 
-    app.post("/users",verifytoken, async (req, res) => {
+    app.post("/users", async (req, res) => {
 
       try {
         const newuser = req.body;
