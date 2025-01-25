@@ -58,7 +58,7 @@ async function run() {
       const email = req.decoded.email;  // Extract email from decoded token
       const query = { email: email };
 
-      // Fetch user from database
+      // Fetch user from databasenot
       const user = await userCollection.findOne(query);
 
       if (!user) {
@@ -215,7 +215,7 @@ async function run() {
     app.post("/createpaymentintent", verifytoken, async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
-      console.log(amount, "amount inside intent");
+      // console.log(amount, "amount inside intent");
 
 
 
@@ -370,8 +370,8 @@ async function run() {
     app.post('/tasksubmit', verifytoken, async (req, res) => {
       const submititem = req.body;
       const { task_id } = submititem;
-      console.log(submititem);
-      console.log(task_id);
+      // console.log(submititem);
+      // console.log(task_id);
 
 
       try {
@@ -450,7 +450,7 @@ async function run() {
       const size = parseInt(req.query.size);
       const userEmail = req.query.userEmail;
       const filter = { worker_email: userEmail }
-      console.log('pagination query', page, size, userEmail);
+      // console.log('pagination query', page, size, userEmail);
       // console.log('pagination query', page, size);
       const result = await submitCollection.find(filter).skip(page * size).limit(size).toArray();
       res.send(result);
@@ -476,7 +476,7 @@ async function run() {
     // for pagination
     app.get('/submitCount', async (req, res) => {
       const count = await submitCollection.estimatedDocumentCount();
-      console.log(count);
+      // console.log(count);
 
       res.send({ count });
     })
@@ -565,7 +565,7 @@ async function run() {
     app.patch('/users/coins/:id', verifytoken, async (req, res) => {
       const id = req.params.id;
       const { coins } = req.body;
-      console.log(coins);
+      // console.log(coins);
       
       if (coins === undefined) {
         return res.status(400).send({ success: false, message: "Coins value is required." });
@@ -609,7 +609,7 @@ async function run() {
     // for worker 
     app.get('/users/admin/:email', verifytoken, async (req, res) => {
       const email = req.params.email;
-      console.log("from line", req.decoded);
+      // console.log("from line", req.decoded);
       const query = { email: email };
       const user = await userCollection.findOne(query);
       let worker = false;
@@ -622,7 +622,7 @@ async function run() {
 
     app.get('/users/admin/:email', verifytoken, async (req, res) => {
       const email = req.params.email;
-      console.log("from line", req.decoded);
+      // console.log("from line", req.decoded);
       const query = { email: email };
       const user = await userCollection.findOne(query);
       let buyer = false;
@@ -658,7 +658,7 @@ async function run() {
     // get user api
 
     app.get('/users/role', verifytoken, async (req, res) => {
-      console.log(req.headers);
+      // console.log(req.headers);
 
       const { role } = req.query;
 
