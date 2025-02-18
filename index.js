@@ -657,7 +657,7 @@ async function run() {
 
     // get user api
 
-    app.get('/users/role', verifytoken, async (req, res) => {
+    app.get('/users/role', async (req, res) => {
       // console.log(req.headers);
 
       const { role } = req.query;
