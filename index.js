@@ -456,8 +456,10 @@ async function run() {
       res.send(result);
     })
 
-    app.get("/totoalsubmitted", async (req, res) => {
-      const result = await submitCollection.find().toArray();
+    app.get("/totoalsubmitted/:email", async (req, res) => {
+      const email = req.params.email;
+      console.log("email", email)
+      const result = await submitCollection.find({ worker_email: email }).toArray();
       res.send(result);
     })
 
@@ -483,13 +485,13 @@ async function run() {
 
 
 
-    app.delete('/task/:id',verifytoken, async (req, res) => {
+    app.delete('/task/:id', verifytoken, async (req, res) => {
       const id = req.params.id
       const query = { _id: new ObjectId(id) }
       const result = await taskCollection.deleteOne(query);
       res.send(result);
     })
-  
+
 
 
     // create individual task cllect 
@@ -566,7 +568,7 @@ async function run() {
       const id = req.params.id;
       const { coins } = req.body;
       // console.log(coins);
-      
+
       if (coins === undefined) {
         return res.status(400).send({ success: false, message: "Coins value is required." });
       }
@@ -678,8 +680,25 @@ async function run() {
       }
     });
 
+    // category add to user api
+    app.patch(`/users/:userEmail/categories`, async (req, res) => {
+      const userEmail = req.params.userEmail;
+      const { categories } = req.body;
+      console.log("category",categories)
+      try {
+        const user = await userCollection.findOneAndUpdate(
+          { email: userEmail },         // FILTER: find by email
+          { $set: { categories } },
+        );
+        return res.json({ success: true, user });
+      } catch (error) {
+        console.error('Error updating categories:', error);
+        return res.status(500).json({ error: 'Internal server error' });
 
-    app.get('/users', verifytoken, async (req, res) => {
+      }
+    })
+
+    app.get('/users', async (req, res) => {
       const email = req.query.email;
       // If email is provided, find the specific user by email
       if (email) {
