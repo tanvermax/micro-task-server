@@ -189,7 +189,7 @@ async function run() {
       res.send(result);
     })
 
-// notification
+    // notification
 
     app.post('/newnotificatio', verifytoken, async (req, res) => {
       const notifi = req.body;
@@ -685,7 +685,7 @@ async function run() {
     app.patch(`/users/:userEmail/categories`, async (req, res) => {
       const userEmail = req.params.userEmail;
       const { categories } = req.body;
-      console.log("category",categories)
+      console.log("category", categories)
       try {
         const user = await userCollection.findOneAndUpdate(
           { email: userEmail },         // FILTER: find by email
@@ -729,7 +729,16 @@ async function run() {
 
     // new useer
 
+    app.get("/user/me", async (req, res) => {
+      const email = req.query.email;
 
+      console.log(email)
+      const user = await userCollection.findOne({ email: email });
+      console.log(user)
+      res.send(user)
+
+    })
+    
     app.post("/users", async (req, res) => {
 
       try {
@@ -754,6 +763,8 @@ async function run() {
   }
 }
 run().catch(console.dir);
+
+
 
 app.get('/', (req, res) => {
   res.send('earnly is running')
