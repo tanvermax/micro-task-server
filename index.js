@@ -4,7 +4,7 @@ const app = express();
 const cors = require('cors');
 require('dotenv').config();
 const cookieParser = require('cookie-parser');
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5001;
 const stripe = require('stripe')(process.env.STRIPE_TOKEN_SECREC)
 
 app.use(cors())
@@ -36,7 +36,7 @@ async function run() {
     const withdrawtCollection = client.db('earnly').collection("transitions");
     const trasnsitCollection = client.db('earnly').collection("usertransiction");
     const notificationCollection = client.db('earnly').collection("notification");
-
+    // const followCollection = client.db("earnly").collection("follower")
 
 
     const verifyworker = async (req, res, next) => {
@@ -94,7 +94,12 @@ async function run() {
     }
 
 
+    // follopwe
+    app.post('/users/:userId/follow/:targetUserId', async (req, res) => {
 
+      console.log(req.params)
+      console.log("first")
+    })
 
 
 
@@ -116,13 +121,35 @@ async function run() {
 
     // withsreaw
     app.post('/withdrawals', verifytoken, async (req, res) => {
-      const taskitem = req.body;
-      const result = await withdrawtCollection.insertOne(taskitem);
-      res.send(result);
-    })
+      const withdrawal = req.body;
+      const email = withdrawal.worker_email;
+
+      try {
+        const user = await userCollection.findOne({ email });
+
+        if (!user) return res.status(404).send({ message: "User not found" });
+
+        // Check if user has enough coins
+        if (user.coins < withdrawal.withdrawal_coin) {
+          return res.status(400).send({ message: "Not enough coins" });
+        }
+
+        // 1️⃣ Deduct coins from user
+        await userCollection.updateOne(
+          { email },
+          { $inc: { coins: -withdrawal.withdrawal_coin } }
+        );
+
+        const result = await withdrawtCollection.insertOne(withdrawal);
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Server error", error });
+      }
+    });
 
 
-    app.get('/withdrawals', verifytoken, async (req, res) => {
+    app.get('/withdrawals', async (req, res) => {
       const result = await withdrawtCollection.find().toArray();
       // console.log("the data",result);
 
@@ -132,49 +159,33 @@ async function run() {
 
 
 
-    app.patch('/withdrawals/:id', verifytoken, async (req, res) => {
+    app.patch('/withdrawals/:id', verifytoken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      console.log(id);
 
       try {
-
         const filter = { _id: new ObjectId(id) };
-        // Convert to ObjectId
-        const updatedData = {
-          $set: { status: "approve" },
-        };
+
+        const updatedData = { $set: { status: "approve" } };
+
         const result = await withdrawtCollection.updateOne(filter, updatedData);
+
         if (result.modifiedCount === 0) {
-          return res.status(400).send({ error: "No document found or already approved" });
+          return res.status(400).send({ error: "Not found or already approved" });
         }
 
-        const updatedSubmission = await withdrawtCollection.findOne(filter);
-        const userEmail = updatedSubmission.worker_email;
+        const withdrawal = await withdrawtCollection.findOne(filter);
 
-        // console.log(updatedSubmission);
-
-        const coinAmount = parseInt(updatedSubmission.withdrawal_coin);
-
-        const userFilter = { email: userEmail };
-        console.log(userFilter);
-
-        const coinUpdate = {
-          $inc: { coins: -coinAmount },
-        };
-        const userResult = await userCollection.updateOne(userFilter, coinUpdate);
-
+        // Send success response
         res.send({
-          message: 'Submission approved and coins updated successfully',
-          submissionResult: updatedSubmission,
-          userResult: userResult,
+          message: "Withdrawal approved",
+          withdrawal
         });
+
       } catch (error) {
-        console.error("Error updating submission:", error);
-        res.status(500).send({ error: "Failed to update submission" });
+        res.status(500).send({ error: "Approval failed" });
       }
+    });
 
-
-    })
     // tasnsition list
     // app.get('/transit', async (req, res) => {
     //   // const taskitem = req.body;
@@ -258,28 +269,8 @@ async function run() {
         res.status(500).json({ error: error.message });
       }
     });
-    // rejected
-
-    // try {
-    //   const result = await submitCollection.insertOne(submititem);
-    //   const taskUpdateresult = await taskCollection.updateOne(
-    //     { _id: new ObjectId(task_id) },
-    //     { $inc: { requiredWorkers: -1 } }
-
-    //   )
-    //   // console.log(taskUpdateresult);
 
 
-
-    //   res.send({
-    //     message: 'Submission created and task updated successfully',
-    //     submissionResult: result,
-    //     taskUpdateresult: taskUpdateresult,
-    //   });
-    // } catch (error) {
-    //   console.error('Error creating submission or updating task:', error);
-    //   res.status(500).send({ error: 'Failed to create submission or update task' });
-    // }
 
     app.patch('/submitted/reject/:id', verifytoken, async (req, res) => {
       const id = req.params.id;
@@ -738,7 +729,7 @@ async function run() {
       res.send(user)
 
     })
-    
+
     app.post("/users", async (req, res) => {
 
       try {
@@ -746,7 +737,7 @@ async function run() {
         const query = { email: newuser.email }
         const existinguser = await userCollection.findOne(query)
         if (existinguser) {
-          return res.send({ message: 'user already axists', insertedId: null })
+          return res.send({ message: 'User Already exist', insertedId: null })
         } // Get user data from the request body
         const result = await userCollection.insertOne(newuser); // Insert user into the database
         res.send(result); // Send the result back to the client
@@ -755,6 +746,149 @@ async function run() {
         res.status(500).send({ message: "Failed to insert user" }); // Handle errors gracefully
       }
     });
+
+    app.get("/worker/tasks-stats/:email", verifytoken, async (req, res) => {
+      const email = req.params.email;
+
+      try {
+        const pipeline = [
+          { $match: { worker_email: email } },
+
+          {
+            $group: {
+              _id: { $month: { $toDate: "$submitted_at" } },
+              count: { $sum: 1 },
+            },
+          },
+
+          {
+            $sort: { "_id": 1 }
+          }
+        ];
+
+        const result = await submitCollection.aggregate(pipeline).toArray();
+
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: "Failed to load task stats", err });
+      }
+    });
+    
+    app.get("/worker/coins-stats/:email", verifytoken, async (req, res) => {
+      const email = req.params.email;
+
+      try {
+        const pipeline = [
+          { $match: { worker_email: email, status: "approved" } },
+
+          {
+            $group: {
+              _id: { $month: { $toDate: "$approved_at" } },
+              coins: { $sum: "$reward_coin" }
+            }
+          },
+
+          { $sort: { "_id": 1 } }
+        ];
+
+        const result = await submitCollection.aggregate(pipeline).toArray();
+
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: "Failed to load coin stats", err });
+      }
+    });
+
+    app.get("/worker/status-stats/:email", verifytoken, async (req, res) => {
+      const email = req.params.email;
+
+      try {
+        const pipeline = [
+          { $match: { worker_email: email } },
+
+          {
+            $group: {
+              _id: "$status",
+              count: { $sum: 1 }
+            }
+          }
+        ];
+
+        const result = await submitCollection.aggregate(pipeline).toArray();
+
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: "Failed to load status stats", err });
+      }
+    });
+
+ app.get("/withdrawals/monthly/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const monthly = await withdrawtCollection.aggregate([
+      { 
+        $match: { 
+          worker_email: email, 
+          status: "approve" 
+        } 
+      },
+      {
+        $group: {
+          _id: { $month: { $toDate: "$withdraw_date" } },
+          totalCoins: { $sum: "$withdrawal_coin" },
+          totalAmount: { $sum: "$withdrawal_amount" }
+        }
+      },
+      { $sort: { "_id": 1 } }
+    ]).toArray();
+
+    const formatted = monthly.map(m => ({
+      month: m._id,
+      coins: m.totalCoins,
+      amount: m.totalAmount
+    }));
+
+    res.json(formatted);
+
+  } catch (error) {
+    console.log("Error:", error);  // <-- log error
+    res.status(500).json({ error: error.message });
+  }
+});
+
+    app.get("/withdrawals/stats/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+
+        const stats = await withdrawtCollection.aggregate([
+          { $match: { worker_email: email, status: "approve" } },
+          {
+            $group: {
+              _id: null,
+              totalCoins: { $sum: "$withdrawal_coin" },
+              totalAmount: { $sum: "$withdrawal_amount" },
+              totalRequests: { $sum: 1 }
+            }
+          }
+        ]);
+
+        const result = stats[0] || {
+          totalCoins: 0,
+          totalAmount: 0,
+          totalRequests: 0,
+        };
+
+        res.json(result);
+
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+
+
+
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
@@ -776,3 +910,6 @@ app.listen(port, () => {
 
   }
 })
+
+
+
