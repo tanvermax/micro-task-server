@@ -773,7 +773,7 @@ async function run() {
         res.status(500).send({ error: "Failed to load task stats", err });
       }
     });
-    
+
     app.get("/worker/coins-stats/:email", verifytoken, async (req, res) => {
       const email = req.params.email;
 
@@ -822,40 +822,40 @@ async function run() {
       }
     });
 
- app.get("/withdrawals/monthly/:email", async (req, res) => {
-  try {
-    const { email } = req.params;
+    app.get("/withdrawals/monthly/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
 
-    const monthly = await withdrawtCollection.aggregate([
-      { 
-        $match: { 
-          worker_email: email, 
-          status: "approve" 
-        } 
-      },
-      {
-        $group: {
-          _id: { $month: { $toDate: "$withdraw_date" } },
-          totalCoins: { $sum: "$withdrawal_coin" },
-          totalAmount: { $sum: "$withdrawal_amount" }
-        }
-      },
-      { $sort: { "_id": 1 } }
-    ]).toArray();
+        const monthly = await withdrawtCollection.aggregate([
+          {
+            $match: {
+              worker_email: email,
+              status: "approve"
+            }
+          },
+          {
+            $group: {
+              _id: { $month: { $toDate: "$withdraw_date" } },
+              totalCoins: { $sum: "$withdrawal_coin" },
+              totalAmount: { $sum: "$withdrawal_amount" }
+            }
+          },
+          { $sort: { "_id": 1 } }
+        ]).toArray();
 
-    const formatted = monthly.map(m => ({
-      month: m._id,
-      coins: m.totalCoins,
-      amount: m.totalAmount
-    }));
+        const formatted = monthly.map(m => ({
+          month: m._id,
+          coins: m.totalCoins,
+          amount: m.totalAmount
+        }));
 
-    res.json(formatted);
+        res.json(formatted);
 
-  } catch (error) {
-    console.log("Error:", error);  // <-- log error
-    res.status(500).json({ error: error.message });
-  }
-});
+      } catch (error) {
+        console.log("Error:", error);  // <-- log error
+        res.status(500).json({ error: error.message });
+      }
+    });
 
     app.get("/withdrawals/stats/:email", async (req, res) => {
       try {
@@ -886,6 +886,161 @@ async function run() {
       }
     });
 
+    app.get("/buyer/tasks-added/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+
+        const stats = await taskCollection.aggregate([
+          { $match: { taskowner: email } },
+          {
+            $group: {
+              _id: { $month: { $toDate: "$createdAt" } },
+              tasks: { $sum: 1 }
+            }
+          },
+          { $sort: { "_id": 1 } }
+        ]).toArray();
+
+        const formatted = stats.map(m => ({
+          name: new Date(2025, m._id - 1).toLocaleString("en-US", { month: "short" }),
+          tasks: m.tasks
+        }));
+
+        res.json(formatted);
+
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+    app.get("/buyer/tasks-completed/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+
+        const stats = await taskCollection.aggregate([
+          { $match: { taskowner: email, status: "completed" } },
+          {
+            $group: {
+              _id: { $month: { $toDate: "$completedAt" } },
+              tasks: { $sum: 1 }
+            }
+          },
+          { $sort: { "_id": 1 } }
+        ]).toArray();
+
+        const formatted = stats.map(m => ({
+          name: new Date(2025, m._id - 1).toLocaleString("en-US", { month: "short" }),
+          tasks: m.tasks
+        }));
+
+        res.json(formatted);
+
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+    app.get("/buyer/task-status/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+
+        const stats = await taskCollection.aggregate([
+          { $match: { taskowner: email } },
+          {
+            $group: {
+              _id: "$status",
+              count: { $sum: 1 }
+            }
+          }
+        ]).toArray();
+
+        const formatted = stats.map(s => ({
+          name: s._id,
+          value: s.count
+        }));
+
+        res.json(formatted);
+
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    app.delete("/user/delete/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+
+        // Delete user account
+        const result = await usersCollection.deleteOne({ email });
+
+        if (result.deletedCount === 0) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        res.json({ message: "Account deleted successfully" });
+
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // DELETE PAYMENT
+    app.delete("/transit/:id", async (req, res) => {
+      const id = req.params.id;
+      try {
+        const result = await trasnsitCollection.deleteOne({ _id: new ObjectId(id) });
+
+        if (result.deletedCount === 0) {
+          return res.status(404).send({ message: "Payment not found" });
+        }
+
+        res.send({ message: "Payment deleted successfully" });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
+
+    app.get("/user/:email", async (req, res) => {
+      const email = req.params.email;
+
+      const user = await userCollection.findOne({ email });
+
+      if (!user) {
+        return res.status(404).send({ message: "User not found" });
+      }
+
+      res.send(user);
+    });
+
+app.patch("/user/:email", async (req, res) => {
+  const email = req.params.email;
+  const updateData = req.body;
+console.log(email,updateData)
+  try {
+    // Important: NEVER allow updating _id
+    if (updateData._id) {
+      delete updateData._id;
+    }
+
+    const updatedUser = await userCollection.findOneAndUpdate(
+      { email: email },            // Find user by email
+      { $set: updateData },        // Apply updates
+      { returnDocument: "after" }  // Return updated document
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({
+      success: true,
+      user: updatedUser,
+    });
+
+  } catch (error) {
+    console.error("Error updating user info:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 
 
